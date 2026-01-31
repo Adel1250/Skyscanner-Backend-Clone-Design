@@ -27,13 +27,13 @@ The backend system is designed for high-performance, and fault-tolerance.
 
 Shows the detailed **message flow between client, backend, cache, DB, and Amadeus** for search requests.
 
-![Hotel Search Sequence Diagram](out\hotel-search-sequence-diagram\Hotel-Search.png)
+![Hotel Search Sequence Diagram](out/hotel-search-sequence-diagram/Hotel-Search.png)
 
 #### 2. Hotels Table Maintenance Sequence
 
 Shows the **scheduled background job to maintain hotels table**, including API sync and cache updates.
 
-![Hotels Table Maintenance Sequence Diagram](out\hotel-table-maintenance-sequence-diagram\Maintain-Hotels-Table.png)
+![Hotels Table Maintenance Sequence Diagram](out/hotel-table-maintenance-sequence-diagram/Maintain-Hotels-Table.png)
 
 ---
 
@@ -41,7 +41,7 @@ Shows the **scheduled background job to maintain hotels table**, including API s
 
 The flowchart illustrates the **overall search, pricing, caching, and hotel details flow**, including decisions for cache misses and stale offers.
 
-![Hotel Search Flowchart](out\hotel-search-flowchart\HotelSearchFlowchart.png)
+![Hotel Search Flowchart](out/hotel-search-flowchart/HotelSearchFlowchart.png)
 
 ---
 
