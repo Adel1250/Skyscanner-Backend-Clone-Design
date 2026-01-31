@@ -1,0 +1,19 @@
+@startuml Maintain Hotels Table
+
+participant "Backend" as BACKEND
+participant "Database" as DB
+participant "Amadeus API" as AMADEUS
+
+== Scheduled Hotel Data Sync ==
+BACKEND -> BACKEND: Get all city codes
+par For each city code (in parallel)
+	BACKEND -> AMADEUS: Fetch hotels for city [GET /v1/reference-data/locations/hotels/by-city?cityCode=XXX]
+	AMADEUS --> BACKEND: Hotel data for city
+end
+note right of BACKEND
+The hotel fetch for each city is performed in parallel threads to speed up the sync process.
+end note
+BACKEND -> BACKEND: Aggregate & Normalize all hotel data
+BACKEND -> DB: Upsert hotel records (insert/update/delete as needed)
+DB --> BACKEND: Upsert result
+@enduml

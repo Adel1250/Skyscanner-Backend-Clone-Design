@@ -1,0 +1,70 @@
+@startuml Hotel Search
+actor Client
+
+participant "Backend" as BACKEND
+participant "Database" as DB
+participant "Cache" as CACHE
+participant "Amadeus API" as AMADEUS
+
+== Hotel Search Request ==
+
+Client -> BACKEND: Search Hotels\n(destination, dates, guests, filters)
+
+BACKEND -> BACKEND: Validate Request
+
+BACKEND -> DB: Query hotels table\n(location, attributes, filters)
+DB --> BACKEND: Hotel list (IDs + metadata)
+
+BACKEND -> BACKEND: Rank & paginate hotels
+note right of BACKEND
+Ranking is computed once per search request
+using deterministic signals (rating, popularity, distance).
+The ordered hotel IDs are frozen into a search snapshot (searchId).
+Pagination returns only the visible subset (e.g. top 20),
+preventing duplicates across subsequent pages.
+end note
+
+BACKEND -> CACHE: Get cached offers\n(batch lookup)
+CACHE --> BACKEND: Cache hits + misses
+
+alt Cache miss exists
+    BACKEND -> BACKEND: Check rate limits & budget
+    BACKEND -> BACKEND: Start best-effort price fetch (time-boxed)
+    BACKEND -> AMADEUS: Fetch hotel offers (async)\n[GET /v3/shopping/hotel-offers]
+    note right of BACKEND
+    Amadeus call is best-effort and time-boxed (e.g. 200–300 ms).
+    Search response must not fail if pricing is unavailable.
+    end note
+    AMADEUS --> BACKEND: Hotel offers (if returned within timeout)
+    BACKEND -> CACHE: Store offers (TTL)
+end
+
+
+BACKEND -> BACKEND: Merge static + pricing
+BACKEND -> BACKEND: Apply price filters & sorting
+
+BACKEND --> Client: Search response\n(partial or full)
+
+== Background Price Refresh ==
+
+opt Async refresh
+    BACKEND -> AMADEUS: Refresh missing offers\n[GET /v3/shopping/hotel-offers]
+    AMADEUS --> BACKEND: Updated offers
+    BACKEND -> CACHE: Update cache
+end
+
+== Hotel Details / Repricing ==
+
+Client -> BACKEND: View Hotel Details\n(hotelId, dates)
+
+BACKEND -> CACHE: Get cached offer
+CACHE --> BACKEND: Cached offer
+
+alt Offer missing or stale
+    BACKEND -> AMADEUS: Fetch latest offer\n[GET /v3/shopping/hotel-offers/{offerId}]
+    AMADEUS --> BACKEND: Latest price
+    BACKEND -> CACHE: Update offer
+end
+
+BACKEND --> Client: Hotel details + confirmed price
+@enduml
