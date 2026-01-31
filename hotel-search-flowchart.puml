@@ -1,0 +1,81 @@
+@startuml HotelSearchFlowchart
+' ==============================
+' Document: Hotel Search Flow
+' Author: Adel Hamouda (adelashrafwork@gmail.com)
+' Created: 2026-01-31
+' Description:
+' Flowchart for hotel search, pricing, caching, and repricing
+' ==============================
+
+start
+
+:Client sends search request\n(destination, dates, guests, filters);
+
+:Validate request;
+
+:Query DB for hotels\n(location, attributes, filters);
+:Receive hotel list (IDs + metadata);
+
+:Rank & paginate hotels;
+note right
+Deterministic ranking (rating, popularity, distance)
+Frozen snapshot (searchId)
+Pagination returns visible subset (top N)
+end note
+
+:Check cache for hotel offers;
+:Cache hits + misses;
+
+if (Cache miss exists?) then (Yes)
+    :Check rate limits & budget;
+    :Start best-effort price fetch (time-boxed);
+    note right
+    Amadeus call is async & time-boxed (200-300ms)
+    Search response will not fail if pricing unavailable
+    end note
+    :Fetch hotel offers from Amadeus;
+    :Update cache with fetched offers;
+else (No)
+    :Use cached offers;
+endif
+
+:Merge static info + pricing;
+:Apply price filters & sorting;
+
+:Return search response\n(partial or full);
+
+'------------------------------
+' Background Price Refresh (async)
+'------------------------------
+note right
+Async refresh of missing/stale offers
+Throttled, batched
+Failures do not affect search responses
+end note
+:Determine missing/stale offers;
+:Fetch updated offers from Amadeus;
+:Update cache;
+
+'------------------------------
+' Hotel Details / Repricing
+'------------------------------
+:Client requests hotel details\n(hotelId, dates);
+
+:Check cache for hotel offer;
+
+if (Offer missing or stale?) then (Yes)
+    :Start time-boxed repricing;
+    note right
+    Time-boxed, best-effort fetch
+    Return explicit pricing error if failed
+    end note
+    :Fetch latest offer from Amadeus;
+    :Update cache;
+else (No)
+    :Use cached offer;
+endif
+
+:Return hotel details + confirmed price;
+
+stop
+@enduml

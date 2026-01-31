@@ -1,4 +1,14 @@
 @startuml Hotel Search
+
+' ==============================
+' Document: Hotel Search Flow
+' Author: Adel Hamouda (adelashrafwork@gmail.com)
+' Created: 2026-01-31
+' Description:
+' Backend sequence diagram for hotel search,
+' pricing, caching, and repricing flow.
+' ==============================
+
 actor Client
 
 participant "Backend" as BACKEND
@@ -36,7 +46,7 @@ alt Cache miss exists
     Search response must not fail if pricing is unavailable.
     end note
     AMADEUS --> BACKEND: Hotel offers (if returned within timeout)
-    BACKEND -> CACHE: Store offers (TTL)
+    BACKEND -> CACHE: Store offers
 end
 
 
@@ -48,7 +58,12 @@ BACKEND --> Client: Search response\n(partial or full)
 == Background Price Refresh ==
 
 opt Async refresh
+    BACKEND -> BACKEND: Determine missing / stale offers
     BACKEND -> AMADEUS: Refresh missing offers\n[GET /v3/shopping/hotel-offers]
+    note right of BACKEND
+    Async, throttled, batched refresh.
+    Failures do not affect user requests.
+    end note
     AMADEUS --> BACKEND: Updated offers
     BACKEND -> CACHE: Update cache
 end
@@ -61,8 +76,14 @@ BACKEND -> CACHE: Get cached offer
 CACHE --> BACKEND: Cached offer
 
 alt Offer missing or stale
-    BACKEND -> AMADEUS: Fetch latest offer\n[GET /v3/shopping/hotel-offers/{offerId}]
-    AMADEUS --> BACKEND: Latest price
+    BACKEND -> BACKEND: Start time-boxed repricing
+    BACKEND -> AMADEUS: Fetch latest offer (time-boxed)\n[GET /v3/shopping/hotel-offers/{offerId}]
+    note right of BACKEND
+    Repricing is time-boxed and best-effort.
+    If pricing fails, return explicit pricing error
+    instead of stale or guessed price.
+    end note
+    AMADEUS --> BACKEND: Latest price (if available)
     BACKEND -> CACHE: Update offer
 end
 
