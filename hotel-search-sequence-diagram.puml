@@ -12,7 +12,6 @@
 actor Client
 
 participant "Backend" as BACKEND
-participant "Database" as DB
 participant "Cache" as CACHE
 participant "Amadeus API" as AMADEUS
 
@@ -22,8 +21,15 @@ Client -> BACKEND: Search Hotels\n(destination, dates, guests, filters)
 
 BACKEND -> BACKEND: Validate Request
 
-BACKEND -> DB: Query hotels table\n(location, attributes, filters)
-DB --> BACKEND: Hotel list (IDs + metadata)
+BACKEND -> CACHE: Check cache for hotels
+
+alt Hotels found in cache
+    CACHE --> BACKEND: Return cached hotels
+else Hotels not found
+    BACKEND -> AMADEUS: Request hotels from Amadeus API
+    AMADEUS --> BACKEND: Return hotel results
+    BACKEND -> CACHE: Save results to cache
+end
 
 BACKEND -> BACKEND: Rank & paginate hotels
 note right of BACKEND
@@ -54,19 +60,6 @@ BACKEND -> BACKEND: Merge static + pricing
 BACKEND -> BACKEND: Apply price filters & sorting
 
 BACKEND --> Client: Search response\n(partial or full)
-
-== Background Price Refresh ==
-
-opt Async refresh
-    BACKEND -> BACKEND: Determine missing / stale offers
-    BACKEND -> AMADEUS: Refresh missing offers\n[GET /v3/shopping/hotel-offers]
-    note right of BACKEND
-    Async, throttled, batched refresh.
-    Failures do not affect user requests.
-    end note
-    AMADEUS --> BACKEND: Updated offers
-    BACKEND -> CACHE: Update cache
-end
 
 == Hotel Details / Repricing ==
 
